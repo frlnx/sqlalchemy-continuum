@@ -70,6 +70,12 @@ def make_versioned(
         manager.track_association_operations
     )
 
+    sa.event.listen(
+        sa.engine.Engine,
+        'set_connection_execution_options',
+        manager.track_cloned_connections
+    )
+
 
 def remove_versioning(
     mapper=sa.orm.mapper,
