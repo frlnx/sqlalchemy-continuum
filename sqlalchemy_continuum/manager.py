@@ -378,6 +378,11 @@ class VersioningManager(object):
             uow = self.units_of_work[conn.engine]
         uow.pending_statements.append(stmt)
 
+    def track_cloned_connections(self, c, opt):
+        for connection, uow in self.units_of_work.items():
+            if connection.connection is c.connection:  # ConnectionFairy is the same - this is our clone
+                self.units_of_work[c] = uow
+
     def track_association_operations(
         self, conn, cursor, statement, parameters, context, executemany
     ):
