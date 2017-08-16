@@ -22,9 +22,17 @@ def tracked_operation(func):
         session = object_session(target)
         conn = session.connection()
         try:
-            uow = self.units_of_work[conn.connection]
+            uow = self.units_of_work[conn]
         except KeyError:
-            uow = self.units_of_work[conn.engine]
+            try:
+                uow = self.units_of_work[conn.engine]
+            except KeyError:
+                for connection in self.units_of_work.keys():
+                    if connection.connection is conn.connection:
+                        uow = self.unit_of_work(connection)
+                        break  # The ConnectionFairy is the same, this connection is a clone
+                else:
+                    raise KeyError
         return func(self, uow, target)
     return wrapper
 
@@ -310,11 +318,11 @@ class VersioningManager(object):
         if conn not in self.session_connection_map.values():
             self.session_connection_map[session] = conn
 
-        if conn.connection in self.units_of_work:
-            return self.units_of_work[conn.connection]
+        if conn in self.units_of_work:
+            return self.units_of_work[conn]
         else:
             uow = self.uow_class(self)
-            self.units_of_work[conn.connection] = uow
+            self.units_of_work[conn] = uow
             return uow
 
     def before_flush(self, session, flush_context, instances):
@@ -373,9 +381,17 @@ class VersioningManager(object):
             .values(params)
         )
         try:
-            uow = self.units_of_work[conn.connection]
+            uow = self.units_of_work[conn]
         except KeyError:
-            uow = self.units_of_work[conn.engine]
+            try:
+                uow = self.units_of_work[conn.engine]
+            except KeyError:
+                for connection in self.units_of_work.keys():
+                    if connection.connection is conn.connection:
+                        uow = self.unit_of_work(connection)
+                        break  # The ConnectionFairy is the same, this connection is a clone
+                else:
+                    raise KeyError
         uow.pending_statements.append(stmt)
 
     def track_association_operations(
