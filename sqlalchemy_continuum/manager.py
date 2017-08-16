@@ -382,7 +382,14 @@ class VersioningManager(object):
         try:
             uow = self.units_of_work[conn]
         except KeyError:
-            uow = self.units_of_work[conn.engine]
+            try:
+                uow = self.units_of_work[conn.engine]
+            except KeyError:
+                for connection, uow in dict(self.units_of_work).items():
+                    if connection.connection is conn.connection:
+                        break  # The ConnectionFairy is the same, this connection is a clone
+                else:
+                    raise KeyError
         uow.pending_statements.append(stmt)
 
     def track_association_operations(
