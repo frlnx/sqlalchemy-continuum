@@ -357,6 +357,9 @@ class VersioningManager(object):
         if session.transaction.nested:
             return
         conn = self.session_connection_map.pop(session, None)
+        if conn is None:
+            return
+
         if conn in self.units_of_work:
             uow = self.units_of_work[conn]
             uow.reset(session)
