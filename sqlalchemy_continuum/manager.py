@@ -24,7 +24,14 @@ def tracked_operation(func):
         try:
             uow = self.units_of_work[conn]
         except KeyError:
-            uow = self.units_of_work[conn.engine]
+            try:
+                uow = self.units_of_work[conn.engine]
+            except KeyError:
+                for connection, uow in dict(self.units_of_work).items():
+                    if connection.connection is conn.connection:
+                        break  # The ConnectionFairy is the same, this connection is a clone
+                else:
+                    raise KeyError
         return func(self, uow, target)
     return wrapper
 
@@ -377,11 +384,6 @@ class VersioningManager(object):
         except KeyError:
             uow = self.units_of_work[conn.engine]
         uow.pending_statements.append(stmt)
-
-    def track_cloned_connections(self, c, opt):
-        for connection, uow in self.units_of_work.items():
-            if connection.connection is c.connection:  # ConnectionFairy is the same - this is our clone
-                self.units_of_work[c] = uow
 
     def track_association_operations(
         self, conn, cursor, statement, parameters, context, executemany
