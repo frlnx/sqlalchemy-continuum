@@ -362,6 +362,12 @@ class VersioningManager(object):
             uow.reset(session)
             del self.units_of_work[conn]
 
+        for connection in dict(self.units_of_work).keys():
+            if conn.connection is connection.connection:
+                uow = self.units_of_work[connection]
+                uow.reset(session)
+                del self.units_of_work[connection]
+
     def append_association_operation(self, conn, table_name, params, op):
         """
         Append history association operation to pending_statements list.
@@ -379,9 +385,13 @@ class VersioningManager(object):
         uow.pending_statements.append(stmt)
 
     def track_cloned_connections(self, c, opt):
-        for connection, uow in self.units_of_work.items():
-            if connection.connection is c.connection:  # ConnectionFairy is the same - this is our clone
-                self.units_of_work[c] = uow
+        """
+        Track cloned connections from association tables.
+        """
+        if c not in self.units_of_work.keys():
+            for connection, uow in dict(self.units_of_work).items():
+                if connection.connection is c.connection:  # ConnectionFairy is the same - this is a clone
+                    self.units_of_work[c] = uow
 
     def track_association_operations(
         self, conn, cursor, statement, parameters, context, executemany
