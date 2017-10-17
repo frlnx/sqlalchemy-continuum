@@ -133,7 +133,11 @@ def version_table(table):
 
     :param table: SQLAlchemy Table object
     """
-    if table.metadata.schema:
+    if table.schema:
+        return table.metadata.tables[
+            table.schema + '.' + table.name + '_version'
+        ]
+    elif table.metadata.schema:
         return table.metadata.tables[
             table.metadata.schema + '.' + table.name + '_version'
         ]
@@ -215,7 +219,7 @@ def versioned_relationships(obj, versioned_column_keys):
             yield prop
 
 
-def vacuum(session, model):
+def vacuum(session, model, yield_per=1000):
     """
     When making structural changes to version tables (for example dropping
     columns) there are sometimes situations where some old version records
@@ -236,6 +240,7 @@ def vacuum(session, model):
 
     :param session: SQLAlchemy session object
     :param model: SQLAlchemy declarative model class
+    :param yield_per: how many rows to process at a time
     """
     version_cls = version_class(model)
     versions = defaultdict(list)
@@ -243,15 +248,18 @@ def vacuum(session, model):
     query = (
         session.query(version_cls)
         .order_by(option(version_cls, 'transaction_column_name'))
-    )
+    ).yield_per(yield_per)
+
+    primary_key_col = sa.inspection.inspect(model).primary_key[0].name
 
     for version in query:
-        if versions[version.id]:
-            prev_version = versions[version.id][-1]
+        version_id = getattr(version, primary_key_col)
+        if versions[version_id]:
+            prev_version = versions[version_id][-1]
             if naturally_equivalent(prev_version, version):
                 session.delete(version)
         else:
-            versions[version.id].append(version)
+            versions[version_id].append(version)
 
 
 def is_internal_column(model, column_name):
