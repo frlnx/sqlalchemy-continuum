@@ -96,8 +96,8 @@ class TestChangeSetWhenParentContainsAdditionalColumns(ChangeSetTestCase):
 
         Article.tag_count = sa.orm.column_property(
             sa.select([sa.func.count(Tag.id)])
-                .where(Tag.article_id == Article.id)
-                .correlate_except(Tag)
+            .where(Tag.article_id == Article.id)
+            .correlate_except(Tag)
         )
 
         self.Article = Article
